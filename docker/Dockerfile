@@ -91,6 +91,17 @@ COPY examples ./examples
 RUN cd src/surge-py \
     && maturin build --release --interpreter python3.14 --out /build/wheels
 
+# Build the surge-solve CLI (src/surge-bindings). Same workspace, same Rust
+# release artifacts as the wheel — Cargo's incremental cache shares most of
+# the compiled crates with the maturin step above, so this only links the
+# binary rather than recompiling the whole workspace.
+#
+# Homelab-fork addition: upstream's Dockerfile only ships the Python wheel,
+# but the README documents surge-solve as one of the three supported
+# interfaces. Shipping it here makes `kubectl exec deploy/surge -- surge-solve`
+# work for ad-hoc studies without needing a separate dev install.
+RUN cargo build --release --workspace --exclude surge-py
+
 # ─── Stage 2 · runtime ─────────────────────────────────────────────────────
 FROM ubuntu:26.04 AS runtime
 
@@ -125,6 +136,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy the HiGHS v1.14.0 shared-library install from the wheel-builder
 # stage. libloading picks it up via HIGHS_LIB_DIR (set below).
 COPY --from=wheel-builder /opt/highs /opt/highs
+
+# Copy the surge-solve CLI (built in stage 1 from src/surge-bindings).
+# Dlopens the same HiGHS / Ipopt / SuiteSparse libraries the Python wheel
+# does, so no extra deps are needed at runtime.
+COPY --from=wheel-builder /build/target/release/surge-solve /usr/local/bin/surge-solve
 
 # Dedicated venv so `pip install` doesn't hit PEP 668's externally-managed
 # wall that Ubuntu's system python enforces.
