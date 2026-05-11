@@ -149,12 +149,18 @@ RUN pip install --no-cache-dir \
       'zstandard>=0.22' \
     && rm /tmp/*.whl
 
-# Dashboard code + market specs + benchmark harness live alongside the
-# installed wheel so the server can import them. PYTHONPATH=/opt/surge
-# makes these top-level packages visible. ``examples/`` ships the IEEE
-# + GO C3 starter cases the RTO dashboard exposes as presets.
+# Dashboard code + market specs live alongside the installed wheel so the
+# server can import them. PYTHONPATH=/opt/surge makes these top-level
+# packages visible. ``examples/`` ships the IEEE + GO C3 starter cases the
+# RTO dashboard exposes as presets.
+#
+# NOTE (homelab fork): the upstream Dockerfile also COPY'd ``benchmarks``,
+# but that directory is not present in the public repo at HEAD and is only
+# referenced as a ``--reload`` watch path in ``dashboards/server/__main__.py``
+# (i.e. dev-mode hot-reload, not runtime). Dropping the line lets the image
+# build cleanly. Upstream PR/issue to amptimal/surge should resolve this
+# either by committing the benchmarks harness or by removing the COPY.
 COPY markets /opt/surge/markets
-COPY benchmarks /opt/surge/benchmarks
 COPY dashboards /opt/surge/dashboards
 COPY examples /opt/surge/examples
 
